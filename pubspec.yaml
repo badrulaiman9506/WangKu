@@ -1,0 +1,41 @@
+name: wangku
+description: Student Expense Tracker - a mobile application. UPTM diploma FYP.
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Local storage. sqflite is the package named in the proposal.
+  sqflite: ^2.3.3
+  path: ^1.9.0
+
+  # RM formatting and date labels.
+  intl: ^0.19.0
+
+  # Fraunces and Inter, fetched and cached at runtime.
+  google_fonts: ^6.2.1
+
+  # --- Increment 2 ---
+  # Due-date reminders, scheduled on device with no server.
+  flutter_local_notifications: ^17.2.2
+  # Required by flutter_local_notifications for exact scheduled times.
+  timezone: ^0.9.4
+  # Donut chart on the monthly summary screen.
+  fl_chart: ^0.68.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+  # Lets the CRUD unit tests run a real SQLite database on Windows
+  # instead of needing an emulator.
+  sqflite_common_ffi: ^2.3.3
+
+flutter:
+  uses-material-design: true
