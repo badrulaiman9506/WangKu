@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wangku/core/theme/app_theme.dart';
+import 'package:wangku/core/theme/app_colors.dart';
 import 'package:wangku/state/index.dart';
 
 class ExpensesScreen extends ConsumerWidget {
@@ -47,17 +48,19 @@ class ExpensesScreen extends ConsumerWidget {
               return Card(
                 margin: const EdgeInsets.only(bottom: 12),
                 child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: AppColors.primary.withOpacity(0.1),
-                    child: Icon(
+                    leading: CircleAvatar(
+                    backgroundColor: AppColors.coral.withValues(alpha: 0.1),
+                    child: const Icon(
                       Icons.shopping_bag,
-                      color: AppColors.primary,
+                      color: AppColors.coral,
                     ),
                   ),
-                  title: Text(expense.category),
-                  subtitle: Text(expense.description),
+                  title: Text(expense.note ?? 'Expense'),
+                  subtitle: Text(
+                    '${expense.spentAt.day}/${expense.spentAt.month}/${expense.spentAt.year}',
+                  ),
                   trailing: Text(
-                    'RM ${expense.amount.toStringAsFixed(2)}',
+                    'RM ${(expense.amountCents / 100).toStringAsFixed(2)}',
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,

@@ -15,7 +15,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Wang Ku',
-      theme: AppTheme.lightTheme,
+      theme: AppTheme.light,
       home: const ShellScreen(),
       debugShowCheckedModeBanner: false,
     );

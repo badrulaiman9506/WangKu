@@ -1,18 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wangku/core/theme/app_theme.dart';
 import 'package:wangku/features/home/index.dart';
 import 'package:wangku/features/expenses/index.dart';
 import 'package:wangku/features/placeholder/index.dart';
 
-class ShellScreen extends ConsumerStatefulWidget {
+class ShellScreen extends StatefulWidget {
   const ShellScreen({Key? key}) : super(key: key);
 
   @override
-  ConsumerState<ShellScreen> createState() => _ShellScreenState();
+  State<ShellScreen> createState() => _ShellScreenState();
 }
 
-class _ShellScreenState extends ConsumerState<ShellScreen> {
+class _ShellScreenState extends State<ShellScreen> {
   int _selectedIndex = 0;
 
   @override
@@ -27,28 +26,32 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
           PlaceholderScreen(),
         ],
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: (index) {
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: (index) {
           setState(() {
             _selectedIndex = index;
           });
         },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home),
             label: 'Home',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.receipt),
+          NavigationDestination(
+            icon: Icon(Icons.receipt_long_outlined),
+            selectedIcon: Icon(Icons.receipt_long),
             label: 'Expenses',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.handshake),
+          NavigationDestination(
+            icon: Icon(Icons.handshake_outlined),
+            selectedIcon: Icon(Icons.handshake),
             label: 'Debts',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.target),
+          NavigationDestination(
+            icon: Icon(Icons.flag_outlined),
+            selectedIcon: Icon(Icons.flag),
             label: 'Goals',
           ),
         ],

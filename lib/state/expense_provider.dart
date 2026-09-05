@@ -2,22 +2,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wangku/data/models/expense.dart';
 import 'package:wangku/data/repositories/expense_repository.dart';
 
-final expenseRepositoryProvider = Provider((ref) {
-  return ExpenseRepository();
+final expenseRepositoryProvider = FutureProvider<ExpenseRepository>((ref) async {
+  return ExpenseRepository.open();
 });
 
 final expensesProvider = FutureProvider<List<Expense>>((ref) async {
-  final repository = ref.watch(expenseRepositoryProvider);
-  return repository.getAllExpenses();
+  final repository = await ref.watch(expenseRepositoryProvider.future);
+  return repository.listAll();
 });
 
-final expensesByMonthProvider = FutureProvider.family<List<Expense>, DateTime>((ref, month) async {
-  final repository = ref.watch(expenseRepositoryProvider);
-  return repository.getExpensesByMonth(month);
+final expensesByMonthProvider =
+    FutureProvider.family<List<Expense>, DateTime>((ref, month) async {
+  final repository = await ref.watch(expenseRepositoryProvider.future);
+  return repository.listByMonth(month);
 });
 
-final monthlyTotalProvider = FutureProvider.family<double, DateTime>((ref, month) async {
-  final repository = ref.watch(expenseRepositoryProvider);
-  final expenses = await repository.getExpensesByMonth(month);
-  return expenses.fold(0.0, (sum, expense) => sum + expense.amount);
+final monthlyTotalCentsProvider =
+    FutureProvider.family<int, DateTime>((ref, month) async {
+  final repository = await ref.watch(expenseRepositoryProvider.future);
+  return repository.monthTotalCents(month);
 });

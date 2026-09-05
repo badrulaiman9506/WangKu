@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wangku/core/theme/app_theme.dart';
+import 'package:wangku/core/theme/app_colors.dart';
 import 'package:wangku/state/index.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -8,7 +9,8 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final monthlyTotal = ref.watch(monthlyTotalProvider(DateTime.now()));
+    final month = ref.watch(currentMonthProvider);
+    final monthlyTotal = ref.watch(monthlyTotalCentsProvider(month));
 
     return Scaffold(
       appBar: AppBar(
@@ -24,9 +26,10 @@ class HomeScreen extends ConsumerWidget {
             children: [
               // Monthly summary card
               Container(
+                width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.primary,
+                  color: AppColors.coral,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
@@ -40,15 +43,19 @@ class HomeScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 8),
                     monthlyTotal.when(
-                      data: (total) => Text(
-                        'RM ${total.toStringAsFixed(2)}',
+                      data: (cents) => Text(
+                        'RM ${(cents / 100).toStringAsFixed(2)}',
                         style: Theme.of(context).textTheme.displaySmall?.copyWith(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      loading: () => const CircularProgressIndicator(color: Colors.white),
-                      error: (err, stack) => Text('Error: $err', style: const TextStyle(color: Colors.white)),
+                      loading: () =>
+                          const CircularProgressIndicator(color: Colors.white),
+                      error: (err, stack) => Text(
+                        'Error: $err',
+                        style: const TextStyle(color: Colors.white),
+                      ),
                     ),
                   ],
                 ),
