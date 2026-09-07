@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:wangku/core/theme/app_theme.dart';
 import 'package:wangku/core/theme/app_colors.dart';
+import 'package:wangku/features/expenses/add_expense_sheet.dart';
 import 'package:wangku/state/index.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -24,7 +24,6 @@ class HomeScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Monthly summary card
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
@@ -38,17 +37,18 @@ class HomeScreen extends ConsumerWidget {
                     Text(
                       'This Month',
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: Colors.white60,
-                      ),
+                            color: Colors.white60,
+                          ),
                     ),
                     const SizedBox(height: 8),
                     monthlyTotal.when(
                       data: (cents) => Text(
                         'RM ${(cents / 100).toStringAsFixed(2)}',
-                        style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style:
+                            Theme.of(context).textTheme.displaySmall?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
                       ),
                       loading: () =>
                           const CircularProgressIndicator(color: Colors.white),
@@ -61,7 +61,6 @@ class HomeScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 24),
-              // Quick actions
               Text(
                 'Quick Actions',
                 style: Theme.of(context).textTheme.titleMedium,
@@ -71,7 +70,7 @@ class HomeScreen extends ConsumerWidget {
                 children: [
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: () {},
+                      onPressed: () => showAddExpenseSheet(context),
                       icon: const Icon(Icons.add),
                       label: const Text('Add Expense'),
                     ),
