@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:wangku/core/theme/app_theme.dart';
 import 'package:wangku/core/theme/app_colors.dart';
+import 'package:wangku/features/expenses/add_expense_sheet.dart';
 import 'package:wangku/state/index.dart';
 
 class ExpensesScreen extends ConsumerWidget {
@@ -10,12 +10,17 @@ class ExpensesScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final expenses = ref.watch(expensesProvider);
+    final categories = ref.watch(categoriesByIdProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Expenses'),
         centerTitle: true,
         elevation: 0,
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => showAddExpenseSheet(context),
+        child: const Icon(Icons.add),
       ),
       body: expenses.when(
         data: (expenseList) {
@@ -25,39 +30,53 @@ class ExpensesScreen extends ConsumerWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    Icons.receipt,
+                    Icons.receipt_long_outlined,
                     size: 64,
-                    color: Colors.grey[300],
+                    color: AppColors.muted,
                   ),
                   const SizedBox(height: 16),
                   Text(
                     'No expenses yet',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Colors.grey[600],
-                    ),
+                          color: AppColors.muted,
+                        ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Tap + to add your first one',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.muted,
+                        ),
                   ),
                 ],
               ),
             );
           }
           return ListView.builder(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
             itemCount: expenseList.length,
             itemBuilder: (context, index) {
               final expense = expenseList[index];
+              final categoryName = categories.maybeWhen(
+                data: (map) => map[expense.categoryId]?.name ?? 'Uncategorised',
+                orElse: () => '',
+              );
+
               return Card(
                 margin: const EdgeInsets.only(bottom: 12),
                 child: ListTile(
-                    leading: CircleAvatar(
-                    backgroundColor: AppColors.coral.withValues(alpha: 0.1),
+                  leading: CircleAvatar(
+                    backgroundColor: AppColors.coral.withValues(alpha: 0.12),
                     child: const Icon(
-                      Icons.shopping_bag,
+                      Icons.shopping_bag_outlined,
                       color: AppColors.coral,
                     ),
                   ),
-                  title: Text(expense.note ?? 'Expense'),
+                  title: Text(categoryName),
                   subtitle: Text(
-                    '${expense.spentAt.day}/${expense.spentAt.month}/${expense.spentAt.year}',
+                    expense.note?.isNotEmpty == true
+                        ? '${expense.note}  ·  ${_formatDate(expense.spentAt)}'
+                        : _formatDate(expense.spentAt),
                   ),
                   trailing: Text(
                     'RM ${(expense.amountCents / 100).toStringAsFixed(2)}',
@@ -75,5 +94,13 @@ class ExpensesScreen extends ConsumerWidget {
         error: (err, stack) => Center(child: Text('Error: $err')),
       ),
     );
+  }
+
+  String _formatDate(DateTime date) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${date.day} ${months[date.month - 1]} ${date.year}';
   }
 }
