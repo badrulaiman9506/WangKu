@@ -77,6 +77,8 @@ class ExpensesScreen extends ConsumerWidget {
                     expense.note?.isNotEmpty == true
                         ? '${expense.note}  ·  ${_formatDate(expense.spentAt)}'
                         : _formatDate(expense.spentAt),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   trailing: Text(
                     'RM ${(expense.amountCents / 100).toStringAsFixed(2)}',
@@ -96,11 +98,16 @@ class ExpensesScreen extends ConsumerWidget {
     );
   }
 
+  /// Omits the year for the current year, which is the common case and
+  /// keeps the subtitle on one line.
   String _formatDate(DateTime date) {
     const months = [
       'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
     ];
-    return '${date.day} ${months[date.month - 1]} ${date.year}';
+    final sameYear = date.year == DateTime.now().year;
+    return sameYear
+        ? '${date.day} ${months[date.month - 1]}'
+        : '${date.day} ${months[date.month - 1]} ${date.year}';
   }
 }
