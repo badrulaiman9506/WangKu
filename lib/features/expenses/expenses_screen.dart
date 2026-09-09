@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wangku/core/theme/app_colors.dart';
+import 'package:wangku/data/models/expense.dart';
 import 'package:wangku/features/expenses/add_expense_sheet.dart';
 import 'package:wangku/state/index.dart';
 
@@ -11,12 +12,40 @@ class ExpensesScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final expenses = ref.watch(expensesProvider);
     final categories = ref.watch(categoriesByIdProvider);
+    final sort = ref.watch(expenseSortProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Expenses'),
         centerTitle: true,
         elevation: 0,
+        actions: [
+          PopupMenuButton<ExpenseSort>(
+            icon: const Icon(Icons.sort),
+            tooltip: 'Sort',
+            initialValue: sort,
+            onSelected: (value) =>
+                ref.read(expenseSortProvider.notifier).set(value),
+            itemBuilder: (context) => const [
+              PopupMenuItem(
+                value: ExpenseSort.newestFirst,
+                child: Text('Newest first'),
+              ),
+              PopupMenuItem(
+                value: ExpenseSort.oldestFirst,
+                child: Text('Oldest first'),
+              ),
+              PopupMenuItem(
+                value: ExpenseSort.amountHighFirst,
+                child: Text('Highest amount'),
+              ),
+              PopupMenuItem(
+                value: ExpenseSort.category,
+                child: Text('Category'),
+              ),
+            ],
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => showAddExpenseSheet(context),
