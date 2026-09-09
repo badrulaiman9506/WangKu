@@ -135,13 +135,13 @@ class AppDatabase {
   static Future<void> seedCategories(Database db) async {
     const seeds = <List<Object>>[
       ['rent', 'Rent', 1],
-      ['wifi', 'Wifi', 2],
-      ['phone', 'Phone', 3],
-      ['subscriptions', 'Subscriptions', 4],
-      ['transport', 'Transport', 5],
-      ['food', 'Food', 6],
-      ['books', 'Books', 7],
-      ['fines', 'Fines', 8],
+      ['bills', 'Bills & Subscriptions', 2],
+      ['transport', 'Transport', 3],
+      ['food', 'Food', 4],
+      ['education', 'Education', 5],
+      ['personal', 'Personal', 6],
+      ['leisure', 'Leisure', 7],
+      ['giving', 'Gifts & Donations', 8],
       ['other', 'Other', 9],
     ];
 
