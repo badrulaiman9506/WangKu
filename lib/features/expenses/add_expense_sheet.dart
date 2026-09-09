@@ -5,17 +5,21 @@ import 'package:wangku/core/theme/app_colors.dart';
 import 'package:wangku/data/models/expense.dart';
 import 'package:wangku/state/index.dart';
 
-/// Opens the add-expense sheet. Returns true if an expense was saved.
-Future<bool?> showAddExpenseSheet(BuildContext context) {
+/// Opens the expense sheet. Pass [expense] to edit an existing entry,
+/// omit it to create a new one. Returns true if anything was saved or
+/// deleted, so the caller can react if it needs to.
+Future<bool?> showAddExpenseSheet(BuildContext context, {Expense? expense}) {
   return showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
-    builder: (context) => const AddExpenseSheet(),
+    builder: (context) => AddExpenseSheet(expense: expense),
   );
 }
 
 class AddExpenseSheet extends ConsumerStatefulWidget {
-  const AddExpenseSheet({Key? key}) : super(key: key);
+  const AddExpenseSheet({Key? key, this.expense}) : super(key: key);
+
+  final Expense? expense;
 
   @override
   ConsumerState<AddExpenseSheet> createState() => _AddExpenseSheetState();
@@ -23,13 +27,30 @@ class AddExpenseSheet extends ConsumerStatefulWidget {
 
 class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
   final _formKey = GlobalKey<FormState>();
-  final _amountController = TextEditingController();
-  final _noteController = TextEditingController();
+  late final TextEditingController _amountController;
+  late final TextEditingController _noteController;
 
   int? _categoryId;
-  DateTime _spentAt = DateTime.now();
+  late DateTime _spentAt;
   bool _saving = false;
   String? _saveError;
+
+  bool get _isEditing => widget.expense != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final existing = widget.expense;
+
+    _amountController = TextEditingController(
+      text: existing == null
+          ? ''
+          : (existing.amountCents / 100).toStringAsFixed(2),
+    );
+    _noteController = TextEditingController(text: existing?.note ?? '');
+    _categoryId = existing?.categoryId;
+    _spentAt = existing?.spentAt ?? DateTime.now();
+  }
 
   @override
   void dispose() {
@@ -60,6 +81,14 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
     }
   }
 
+  /// Refreshes everything that reads expenses, so the list and the
+  /// monthly total update without either screen knowing about this sheet.
+  void _refreshExpenseViews() {
+    ref.invalidate(expensesProvider);
+    ref.invalidate(monthlyTotalCentsProvider);
+    ref.invalidate(expensesByMonthProvider);
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     if (_categoryId == null) {
@@ -74,20 +103,70 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
 
     try {
       final repository = await ref.read(expenseRepositoryProvider.future);
-      await repository.insert(
-        Expense.create(
-          amountCents: _parseCents(_amountController.text)!,
-          categoryId: _categoryId!,
-          spentAt: _spentAt,
-          note: _noteController.text,
-        ),
-      );
+      final cents = _parseCents(_amountController.text)!;
+      final note = _noteController.text;
 
-      // Both screens read from these, so invalidating refreshes the list
-      // and the monthly total without either screen knowing about the sheet.
-      ref.invalidate(expensesProvider);
-      ref.invalidate(monthlyTotalCentsProvider);
+      if (_isEditing) {
+        await repository.update(
+          widget.expense!.copyWith(
+            amountCents: cents,
+            categoryId: _categoryId,
+            spentAt: _spentAt,
+            note: note.trim().isEmpty ? null : note.trim(),
+            clearNote: note.trim().isEmpty,
+          ),
+        );
+      } else {
+        await repository.insert(
+          Expense.create(
+            amountCents: cents,
+            categoryId: _categoryId!,
+            spentAt: _spentAt,
+            note: note,
+          ),
+        );
+      }
 
+      _refreshExpenseViews();
+      if (mounted) Navigator.of(context).pop(true);
+    } catch (error) {
+      setState(() {
+        _saving = false;
+        _saveError = error.toString();
+      });
+    }
+  }
+
+  Future<void> _confirmDelete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete this expense?'),
+        content: const Text('This cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text('Delete', style: TextStyle(color: AppColors.rose)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() {
+      _saving = true;
+      _saveError = null;
+    });
+
+    try {
+      final repository = await ref.read(expenseRepositoryProvider.future);
+      await repository.delete(widget.expense!.id!);
+      _refreshExpenseViews();
       if (mounted) Navigator.of(context).pop(true);
     } catch (error) {
       setState(() {
@@ -124,15 +203,29 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                Text(
-                  'Add expense',
-                  style: Theme.of(context).textTheme.titleLarge,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      _isEditing ? 'Edit expense' : 'Add expense',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    if (_isEditing)
+                      IconButton(
+                        onPressed: _saving ? null : _confirmDelete,
+                        icon: Icon(
+                          Icons.delete_outline,
+                          color: AppColors.rose,
+                        ),
+                        tooltip: 'Delete',
+                      ),
+                  ],
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
 
                 TextFormField(
                   controller: _amountController,
-                  autofocus: true,
+                  autofocus: !_isEditing,
                   keyboardType:
                       const TextInputType.numberWithOptions(decimal: true),
                   inputFormatters: [
@@ -220,7 +313,7 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
                             color: Colors.white,
                           ),
                         )
-                      : const Text('Save expense'),
+                      : Text(_isEditing ? 'Save changes' : 'Save expense'),
                 ),
               ],
             ),

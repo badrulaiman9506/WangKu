@@ -65,6 +65,7 @@ class ExpensesScreen extends ConsumerWidget {
               return Card(
                 margin: const EdgeInsets.only(bottom: 12),
                 child: ListTile(
+                  onTap: () => showAddExpenseSheet(context, expense: expense),
                   leading: CircleAvatar(
                     backgroundColor: AppColors.coral.withValues(alpha: 0.12),
                     child: const Icon(
