@@ -2,7 +2,9 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wangku/core/theme/app_colors.dart';
+import 'package:wangku/data/models/budget.dart';
 import 'package:wangku/data/models/expense.dart';
+import 'package:wangku/features/budgets/index.dart';
 import 'package:wangku/features/expenses/add_expense_sheet.dart';
 import 'package:wangku/state/index.dart';
 
@@ -28,12 +30,25 @@ class HomeScreen extends ConsumerWidget {
     final month = ref.watch(currentMonthProvider);
     final monthlyTotal = ref.watch(monthlyTotalCentsProvider(month));
     final categoryTotals = ref.watch(categoryTotalsProvider(month));
+    final warnings = ref.watch(budgetWarningsProvider(month));
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Wang Ku'),
         centerTitle: true,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.account_balance_wallet_outlined),
+            tooltip: 'Budgets',
+            onPressed: () async {
+              await Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const BudgetsScreen()),
+              );
+              ref.invalidate(budgetWarningsProvider);
+            },
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         child: Padding(
@@ -76,6 +91,15 @@ class HomeScreen extends ConsumerWidget {
                     ),
                   ],
                 ),
+              ),
+              warnings.maybeWhen(
+                data: (list) => list.isEmpty
+                    ? const SizedBox.shrink()
+                    : Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: _BudgetWarningCard(warnings: list),
+                      ),
+                orElse: () => const SizedBox.shrink(),
               ),
               const SizedBox(height: 24),
               Text(
@@ -173,6 +197,58 @@ class HomeScreen extends ConsumerWidget {
                 : (totals[i].totalCents / grandTotal) * 100,
           ),
       ],
+    );
+  }
+}
+
+/// Shown above the chart when any category has reached 90% of its limit.
+class _BudgetWarningCard extends StatelessWidget {
+  const _BudgetWarningCard({required this.warnings});
+
+  final List<BudgetStatus> warnings;
+
+  @override
+  Widget build(BuildContext context) {
+    final anyOver = warnings.any((status) => status.isOverLimit);
+    final accent = anyOver ? AppColors.rose : const Color(0xFFE0A458);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: accent.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: accent, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                anyOver ? 'Over budget' : 'Close to your limit',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: accent,
+                    ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          for (final status in warnings)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '${status.categoryName}: '
+                'RM ${(status.spentCents / 100).toStringAsFixed(2)} of '
+                'RM ${(status.limitCents! / 100).toStringAsFixed(2)} '
+                '(${(status.ratio * 100).toStringAsFixed(0)}%)',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

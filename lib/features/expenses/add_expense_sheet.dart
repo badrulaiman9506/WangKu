@@ -81,14 +81,16 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
     }
   }
 
-  /// Refreshes everything that reads expenses, so the list, the monthly
-  /// total and the summary chart update without any of those screens
-  /// knowing about this sheet.
+  /// Refreshes everything that reads expenses: the list, the monthly
+  /// total, the summary chart and the budget warnings, without any of
+  /// those screens knowing about this sheet.
   void _refreshExpenseViews() {
     ref.invalidate(expensesProvider);
     ref.invalidate(monthlyTotalCentsProvider);
     ref.invalidate(expensesByMonthProvider);
     ref.invalidate(categoryTotalsProvider);
+    ref.invalidate(budgetStatusesProvider);
+    ref.invalidate(budgetWarningsProvider);
   }
 
   Future<void> _save() async {
