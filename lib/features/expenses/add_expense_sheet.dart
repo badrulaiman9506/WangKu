@@ -81,12 +81,14 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
     }
   }
 
-  /// Refreshes everything that reads expenses, so the list and the
-  /// monthly total update without either screen knowing about this sheet.
+  /// Refreshes everything that reads expenses, so the list, the monthly
+  /// total and the summary chart update without any of those screens
+  /// knowing about this sheet.
   void _refreshExpenseViews() {
     ref.invalidate(expensesProvider);
     ref.invalidate(monthlyTotalCentsProvider);
     ref.invalidate(expensesByMonthProvider);
+    ref.invalidate(categoryTotalsProvider);
   }
 
   Future<void> _save() async {
@@ -222,7 +224,6 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
                   ],
                 ),
                 const SizedBox(height: 12),
-
                 TextFormField(
                   controller: _amountController,
                   autofocus: !_isEditing,
@@ -246,9 +247,7 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
                   },
                 ),
                 const SizedBox(height: 20),
-
-                Text('Category',
-                    style: Theme.of(context).textTheme.labelLarge),
+                Text('Category', style: Theme.of(context).textTheme.labelLarge),
                 const SizedBox(height: 8),
                 categories.when(
                   data: (list) => Wrap(
@@ -275,7 +274,6 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
                   error: (err, stack) => Text('Could not load categories: $err'),
                 ),
                 const SizedBox(height: 20),
-
                 Text('Date', style: Theme.of(context).textTheme.labelLarge),
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
@@ -284,7 +282,6 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
                   label: Text(_formatDate(_spentAt)),
                 ),
                 const SizedBox(height: 20),
-
                 TextFormField(
                   controller: _noteController,
                   textCapitalization: TextCapitalization.sentences,
@@ -292,7 +289,6 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
                     labelText: 'Note (optional)',
                   ),
                 ),
-
                 if (_saveError != null) ...[
                   const SizedBox(height: 12),
                   Text(
@@ -300,7 +296,6 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
                     style: TextStyle(color: AppColors.rose),
                   ),
                 ],
-
                 const SizedBox(height: 24),
                 FilledButton(
                   onPressed: _saving ? null : _save,

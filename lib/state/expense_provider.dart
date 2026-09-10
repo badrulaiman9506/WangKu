@@ -27,3 +27,11 @@ final monthlyTotalCentsProvider =
   final repository = await ref.watch(expenseRepositoryProvider.future);
   return repository.monthTotalCents(month);
 });
+
+/// Per-category totals for the summary chart, largest slice first.
+/// Categories with no spending in the month are left out.
+final categoryTotalsProvider =
+    FutureProvider.family<List<CategoryTotal>, DateTime>((ref, month) async {
+  final repository = await ref.watch(expenseRepositoryProvider.future);
+  return repository.totalsByCategory(month);
+});
