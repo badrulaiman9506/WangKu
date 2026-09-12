@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:wangku/core/theme/app_theme.dart';
-import 'package:wangku/features/home/index.dart';
 import 'package:wangku/features/expenses/index.dart';
+import 'package:wangku/features/goals/index.dart';
+import 'package:wangku/features/home/index.dart';
 import 'package:wangku/features/placeholder/index.dart';
 
 class ShellScreen extends StatefulWidget {
@@ -23,7 +23,7 @@ class _ShellScreenState extends State<ShellScreen> {
           HomeScreen(),
           ExpensesScreen(),
           PlaceholderScreen(),
-          PlaceholderScreen(),
+          GoalsScreen(),
         ],
       ),
       bottomNavigationBar: NavigationBar(

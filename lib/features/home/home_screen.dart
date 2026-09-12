@@ -6,6 +6,7 @@ import 'package:wangku/data/models/budget.dart';
 import 'package:wangku/data/models/expense.dart';
 import 'package:wangku/features/budgets/index.dart';
 import 'package:wangku/features/expenses/add_expense_sheet.dart';
+import 'package:wangku/features/goals/index.dart';
 import 'package:wangku/state/index.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -119,7 +120,7 @@ class HomeScreen extends ConsumerWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: () {},
+                      onPressed: () => showGoalSheet(context),
                       icon: const Icon(Icons.trending_up),
                       label: const Text('Set Goal'),
                     ),
