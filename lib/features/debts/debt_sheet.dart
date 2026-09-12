@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:wangku/core/notifications/notification_service.dart';
 import 'package:wangku/core/theme/app_colors.dart';
 import 'package:wangku/data/models/debt.dart';
 import 'package:wangku/state/index.dart';
@@ -103,6 +104,27 @@ class _DebtSheetState extends ConsumerState<DebtSheet> {
     ref.invalidate(overdueDebtsProvider);
   }
 
+  /// Keeps the scheduled reminder in step with the saved row. The debt's
+  /// own id is the notification id, so rescheduling replaces rather than
+  /// duplicates, and turning the switch off cancels.
+  Future<void> _syncReminder(Debt debt) async {
+    final service = NotificationService.instance;
+
+    if (!_reminderEnabled) {
+      await service.cancelDebtReminder(debt.id!);
+      return;
+    }
+
+    await service.requestPermission();
+    await service.scheduleDebtReminder(
+      id: debt.id!,
+      personName: debt.personName,
+      amountCents: debt.amountCents,
+      dueDate: debt.dueDate,
+      iOwe: debt.direction == DebtDirection.iOwe,
+    );
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -117,28 +139,28 @@ class _DebtSheetState extends ConsumerState<DebtSheet> {
       final note = _noteController.text;
 
       if (_isEditing) {
-        await repository.update(
-          widget.debt!.copyWith(
-            direction: _direction,
-            personName: _nameController.text.trim(),
-            amountCents: cents,
-            dueDate: _dueDate,
-            note: note.trim().isEmpty ? null : note.trim(),
-            clearNote: note.trim().isEmpty,
-            reminderEnabled: _reminderEnabled,
-          ),
+        final updated = widget.debt!.copyWith(
+          direction: _direction,
+          personName: _nameController.text.trim(),
+          amountCents: cents,
+          dueDate: _dueDate,
+          note: note.trim().isEmpty ? null : note.trim(),
+          clearNote: note.trim().isEmpty,
+          reminderEnabled: _reminderEnabled,
         );
+        await repository.update(updated);
+        await _syncReminder(updated);
       } else {
-        await repository.insert(
-          Debt.create(
-            direction: _direction,
-            personName: _nameController.text,
-            amountCents: cents,
-            dueDate: _dueDate,
-            note: note,
-            reminderEnabled: _reminderEnabled,
-          ),
+        final created = Debt.create(
+          direction: _direction,
+          personName: _nameController.text,
+          amountCents: cents,
+          dueDate: _dueDate,
+          note: note,
+          reminderEnabled: _reminderEnabled,
         );
+        final newId = await repository.insert(created);
+        await _syncReminder(created.copyWith(id: newId));
       }
 
       _refreshDebtViews();
@@ -179,7 +201,9 @@ class _DebtSheetState extends ConsumerState<DebtSheet> {
 
     try {
       final repository = await ref.read(debtRepositoryProvider.future);
-      await repository.delete(widget.debt!.id!);
+      final id = widget.debt!.id!;
+      await repository.delete(id);
+      await NotificationService.instance.cancelDebtReminder(id);
       _refreshDebtViews();
       if (mounted) Navigator.of(context).pop(true);
     } catch (error) {
@@ -297,8 +321,7 @@ class _DebtSheetState extends ConsumerState<DebtSheet> {
                   },
                 ),
                 const SizedBox(height: 20),
-                Text('Due date',
-                    style: Theme.of(context).textTheme.labelLarge),
+                Text('Due date', style: Theme.of(context).textTheme.labelLarge),
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
                   onPressed: _pickDate,
@@ -322,7 +345,7 @@ class _DebtSheetState extends ConsumerState<DebtSheet> {
                   },
                   title: const Text('Remind me'),
                   subtitle: Text(
-                    'A reminder on the due date',
+                    'A reminder at 9am on the due date',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: AppColors.muted,
                         ),
