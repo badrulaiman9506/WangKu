@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:wangku/features/debts/index.dart';
 import 'package:wangku/features/expenses/index.dart';
 import 'package:wangku/features/goals/index.dart';
 import 'package:wangku/features/home/index.dart';
-import 'package:wangku/features/placeholder/index.dart';
 
 class ShellScreen extends StatefulWidget {
   const ShellScreen({Key? key}) : super(key: key);
@@ -22,7 +22,7 @@ class _ShellScreenState extends State<ShellScreen> {
         children: const [
           HomeScreen(),
           ExpensesScreen(),
-          PlaceholderScreen(),
+          DebtsScreen(),
           GoalsScreen(),
         ],
       ),
