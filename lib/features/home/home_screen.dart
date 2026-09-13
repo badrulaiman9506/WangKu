@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wangku/core/theme/app_colors.dart';
 import 'package:wangku/data/models/budget.dart';
+import 'package:wangku/data/models/debt.dart';
 import 'package:wangku/data/models/expense.dart';
 import 'package:wangku/features/budgets/index.dart';
 import 'package:wangku/features/expenses/add_expense_sheet.dart';
@@ -32,6 +33,7 @@ class HomeScreen extends ConsumerWidget {
     final monthlyTotal = ref.watch(monthlyTotalCentsProvider(month));
     final categoryTotals = ref.watch(categoryTotalsProvider(month));
     final warnings = ref.watch(budgetWarningsProvider(month));
+    final overdue = ref.watch(overdueDebtsProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -92,6 +94,15 @@ class HomeScreen extends ConsumerWidget {
                     ),
                   ],
                 ),
+              ),
+              overdue.maybeWhen(
+                data: (list) => list.isEmpty
+                    ? const SizedBox.shrink()
+                    : Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: _OverdueDebtCard(debts: list),
+                      ),
+                orElse: () => const SizedBox.shrink(),
               ),
               warnings.maybeWhen(
                 data: (list) => list.isEmpty
@@ -198,6 +209,61 @@ class HomeScreen extends ConsumerWidget {
                 : (totals[i].totalCents / grandTotal) * 100,
           ),
       ],
+    );
+  }
+}
+
+/// Shown when any debt is past its due date and still outstanding.
+class _OverdueDebtCard extends StatelessWidget {
+  const _OverdueDebtCard({required this.debts});
+
+  final List<Debt> debts;
+
+  String _line(Debt debt) {
+    final amount = 'RM ${(debt.amountCents / 100).toStringAsFixed(2)}';
+    final days = -debt.daysUntilDue();
+    final ago = days == 1 ? '1 day' : '$days days';
+    return debt.direction == DebtDirection.iOwe
+        ? 'You owe ${debt.personName} $amount ($ago late)'
+        : '${debt.personName} owes you $amount ($ago late)';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.rose.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.rose.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.schedule, color: AppColors.rose, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                debts.length == 1 ? 'Overdue' : '${debts.length} overdue',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: AppColors.rose,
+                    ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          for (final debt in debts)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                _line(debt),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
