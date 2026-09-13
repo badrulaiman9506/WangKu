@@ -48,13 +48,13 @@ void main() {
         rows.map((r) => r['slug']),
         containsAll(<String>[
           'rent',
-          'wifi',
-          'phone',
-          'subscriptions',
+          'bills',
           'transport',
           'food',
-          'books',
-          'fines',
+          'education',
+          'personal',
+          'leisure',
+          'giving',
           'other',
         ]),
       );
