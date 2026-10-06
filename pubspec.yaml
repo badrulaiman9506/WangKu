@@ -38,5 +38,15 @@ dev_dependencies:
   # instead of needing an emulator.
   sqflite_common_ffi: ^2.3.3
 
+  flutter_launcher_icons: ^0.14.4
+
 flutter:
   uses-material-design: true
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/icon/wangku_icon.png"
+  adaptive_icon_background: "#D97156"
+  adaptive_icon_foreground: "assets/icon/wangku_icon_foreground.png"
+  min_sdk_android: 21
