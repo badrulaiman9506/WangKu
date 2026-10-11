@@ -1,29 +1,25 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import 'package:wangku/core/utils/money.dart';
 import 'package:wangku/data/db/app_database.dart';
-import 'package:wangku/data/models/budget.dart';
 import 'package:wangku/data/models/expense.dart';
-import 'package:wangku/data/repositories/budget_repository.dart';
 import 'package:wangku/data/repositories/expense_repository.dart';
 
-/// Objective 2: monthly limits per category, with a warning once spending
-/// reaches 90% of the limit.
+/// Increment 1 deliverable: "Unit tests for expense CRUD operations, run
+/// against a set of expected input/output cases."
 ///
-/// Run against a real in-memory database so the UNIQUE constraint on
-/// (category_id, period) and the LEFT JOIN in statusesForMonth are both
-/// actually exercised.
+/// These run against a real in-memory SQLite database rather than a mock,
+/// so the CHECK constraints, the foreign key, and the date range queries
+/// are all actually exercised.
 void main() {
   sqfliteFfiInit();
   databaseFactory = databaseFactoryFfi;
 
   late Database db;
-  late BudgetRepository repo;
-  late ExpenseRepository expenses;
+  late ExpenseRepository repo;
   late int foodId;
   late int transportId;
-
-  final august = DateTime(2026, 8);
 
   setUp(() async {
     db = await databaseFactory.openDatabase(
@@ -34,8 +30,7 @@ void main() {
         onCreate: AppDatabase.onCreate,
       ),
     );
-    repo = BudgetRepository(db);
-    expenses = ExpenseRepository(db);
+    repo = ExpenseRepository(db);
 
     final categories = await db.query('categories');
     foodId = categories.firstWhere((c) => c['slug'] == 'food')['id'] as int;
@@ -45,302 +40,291 @@ void main() {
 
   tearDown(() async => db.close());
 
-  group('period formatting', () {
-    test('pads the month to two digits', () {
-      expect(Budget.periodFor(DateTime(2026, 8)), '2026-08');
-      expect(Budget.periodFor(DateTime(2026, 12)), '2026-12');
-    });
-
-    test('ignores the day within the month', () {
-      expect(Budget.periodFor(DateTime(2026, 8, 1)), '2026-08');
-      expect(Budget.periodFor(DateTime(2026, 8, 31)), '2026-08');
+  group('seed data', () {
+    test('creates the nine categories from Objective 1', () async {
+      final rows = await db.query('categories');
+      expect(rows.length, 9);
+      expect(
+        rows.map((r) => r['slug']),
+        containsAll(<String>[
+          'rent',
+          'bills',
+          'transport',
+          'food',
+          'education',
+          'personal',
+          'leisure',
+          'giving',
+          'other',
+        ]),
+      );
     });
   });
 
-  group('setting a limit', () {
-    test('stores a new limit', () async {
-      await repo.setLimit(
-        categoryId: foodId,
-        month: august,
-        limitCents: 45000,
+  group('create', () {
+    test('inserts an expense and returns its id', () async {
+      final id = await repo.insert(
+        Expense.create(amountCents: 1200, categoryId: foodId),
       );
 
-      final saved = await repo.findFor(categoryId: foodId, month: august);
+      expect(id, greaterThan(0));
+      final saved = await repo.findById(id);
       expect(saved, isNotNull);
-      expect(saved!.limitCents, 45000);
-      expect(saved.period, '2026-08');
+      expect(saved!.amountCents, 1200);
+      expect(saved.categoryId, foodId);
     });
 
-    test('replaces rather than duplicates an existing limit', () async {
-      await repo.setLimit(
-        categoryId: foodId,
-        month: august,
-        limitCents: 45000,
-      );
-      await repo.setLimit(
-        categoryId: foodId,
-        month: august,
-        limitCents: 50000,
-      );
-
-      final all = await repo.listByMonth(august);
-      expect(all.length, 1);
-      expect(all.first.limitCents, 50000);
-    });
-
-    test('keeps limits for different months apart', () async {
-      await repo.setLimit(
-        categoryId: foodId,
-        month: august,
-        limitCents: 45000,
-      );
-      await repo.setLimit(
-        categoryId: foodId,
-        month: DateTime(2026, 9),
-        limitCents: 30000,
-      );
-
-      expect((await repo.listByMonth(august)).length, 1);
-      expect(
-        (await repo.findFor(categoryId: foodId, month: DateTime(2026, 9)))!
-            .limitCents,
-        30000,
-      );
-    });
-
-    test('rejects a zero or negative limit', () async {
-      expect(
-        () => repo.setLimit(
-          categoryId: foodId,
-          month: august,
-          limitCents: 0,
+    test('trims a note and stores an empty note as null', () async {
+      final id = await repo.insert(
+        Expense.create(
+          amountCents: 850,
+          categoryId: transportId,
+          note: '  Grab to campus  ',
         ),
+      );
+      final blankId = await repo.insert(
+        Expense.create(amountCents: 500, categoryId: foodId, note: '   '),
+      );
+
+      expect((await repo.findById(id))!.note, 'Grab to campus');
+      expect((await repo.findById(blankId))!.note, isNull);
+    });
+
+    test('rejects a zero or negative amount', () async {
+      expect(
+        () => repo.insert(Expense.create(amountCents: 0, categoryId: foodId)),
+        throwsArgumentError,
+      );
+      expect(
+        () => repo.insert(Expense.create(amountCents: -50, categoryId: foodId)),
         throwsArgumentError,
       );
     });
 
-    test('returns null when no limit is set', () async {
-      expect(await repo.findFor(categoryId: foodId, month: august), isNull);
+    test('rejects an unknown category', () async {
+      expect(
+        () => repo.insert(Expense.create(amountCents: 100, categoryId: 9999)),
+        throwsA(isA<DatabaseException>()),
+      );
     });
   });
 
-  group('statuses', () {
-    test('lists every category even with no budget or spending', () async {
-      final statuses = await repo.statusesForMonth(august);
-
-      expect(statuses.length, 9);
-      expect(statuses.every((s) => s.limitCents == null), isTrue);
-      expect(statuses.every((s) => s.spentCents == 0), isTrue);
+  group('read', () {
+    test('returns null for an id that does not exist', () async {
+      expect(await repo.findById(404), isNull);
     });
 
-    test('pairs a limit with what has been spent against it', () async {
-      await repo.setLimit(
-        categoryId: foodId,
-        month: august,
-        limitCents: 45000,
-      );
-      await expenses.insert(Expense.create(
-        amountCents: 20000,
-        categoryId: foodId,
-        spentAt: DateTime(2026, 8, 10),
-      ));
-
-      final food = (await repo.statusesForMonth(august))
-          .firstWhere((s) => s.categoryId == foodId);
-
-      expect(food.limitCents, 45000);
-      expect(food.spentCents, 20000);
-      expect(food.hasLimit, isTrue);
-    });
-
-    test('counts only spending inside the month', () async {
-      await repo.setLimit(
-        categoryId: foodId,
-        month: august,
-        limitCents: 45000,
-      );
-      await expenses.insert(Expense.create(
-        amountCents: 10000,
+    test('lists only expenses inside the requested month', () async {
+      await repo.insert(Expense.create(
+        amountCents: 1000,
         categoryId: foodId,
         spentAt: DateTime(2026, 7, 31, 23, 59),
       ));
-      await expenses.insert(Expense.create(
-        amountCents: 20000,
+      await repo.insert(Expense.create(
+        amountCents: 2000,
         categoryId: foodId,
-        spentAt: DateTime(2026, 8, 1),
+        spentAt: DateTime(2026, 8, 1, 0, 1),
       ));
-      await expenses.insert(Expense.create(
-        amountCents: 30000,
+      await repo.insert(Expense.create(
+        amountCents: 3000,
         categoryId: foodId,
-        spentAt: DateTime(2026, 9, 1),
+        spentAt: DateTime(2026, 8, 31, 23, 59),
       ));
-
-      final food = (await repo.statusesForMonth(august))
-          .firstWhere((s) => s.categoryId == foodId);
-
-      expect(food.spentCents, 20000);
-    });
-
-    test('shows spending for a category with no limit set', () async {
-      await expenses.insert(Expense.create(
-        amountCents: 5000,
-        categoryId: transportId,
-        spentAt: DateTime(2026, 8, 5),
+      await repo.insert(Expense.create(
+        amountCents: 4000,
+        categoryId: foodId,
+        spentAt: DateTime(2026, 9, 1, 0, 1),
       ));
 
-      final transport = (await repo.statusesForMonth(august))
-          .firstWhere((s) => s.categoryId == transportId);
-
-      expect(transport.hasLimit, isFalse);
-      expect(transport.spentCents, 5000);
-      expect(transport.ratio, 0);
-    });
-  });
-
-  group('the 90% threshold', () {
-    Future<void> setUpFood({
-      required int limitCents,
-      required int spentCents,
-    }) async {
-      await repo.setLimit(
-        categoryId: foodId,
-        month: august,
-        limitCents: limitCents,
-      );
-      if (spentCents > 0) {
-        await expenses.insert(Expense.create(
-          amountCents: spentCents,
-          categoryId: foodId,
-          spentAt: DateTime(2026, 8, 10),
-        ));
-      }
-    }
-
-    test('is not near the limit just below 90%', () async {
-      await setUpFood(limitCents: 45000, spentCents: 40000);
-
-      final food = (await repo.statusesForMonth(august))
-          .firstWhere((s) => s.categoryId == foodId);
-
-      expect(food.isNearLimit, isFalse);
-      expect(food.isOverLimit, isFalse);
-      expect(await repo.warningsForMonth(august), isEmpty);
-    });
-
-    test('is near the limit exactly at 90%', () async {
-      await setUpFood(limitCents: 45000, spentCents: 40500);
-
-      final food = (await repo.statusesForMonth(august))
-          .firstWhere((s) => s.categoryId == foodId);
-
-      expect(food.isNearLimit, isTrue);
-      expect(food.isOverLimit, isFalse);
-      expect((await repo.warningsForMonth(august)).length, 1);
-    });
-
-    test('is over the limit at exactly 100%', () async {
-      await setUpFood(limitCents: 45000, spentCents: 45000);
-
-      final food = (await repo.statusesForMonth(august))
-          .firstWhere((s) => s.categoryId == foodId);
-
-      expect(food.isNearLimit, isFalse);
-      expect(food.isOverLimit, isTrue);
-      expect(food.remainingCents, 0);
-    });
-
-    test('reports how far over the limit spending has gone', () async {
-      await setUpFood(limitCents: 12000, spentCents: 12500);
-
-      final food = (await repo.statusesForMonth(august))
-          .firstWhere((s) => s.categoryId == foodId);
-
-      expect(food.isOverLimit, isTrue);
-      expect(food.remainingCents, -500);
-    });
-
-    test('orders warnings worst first', () async {
-      await repo.setLimit(
-        categoryId: foodId,
-        month: august,
-        limitCents: 10000,
-      );
-      await repo.setLimit(
-        categoryId: transportId,
-        month: august,
-        limitCents: 10000,
-      );
-      // Food at 95%, transport at 120%.
-      await expenses.insert(Expense.create(
-        amountCents: 9500,
-        categoryId: foodId,
-        spentAt: DateTime(2026, 8, 5),
-      ));
-      await expenses.insert(Expense.create(
-        amountCents: 12000,
-        categoryId: transportId,
-        spentAt: DateTime(2026, 8, 6),
-      ));
-
-      final warnings = await repo.warningsForMonth(august);
-
-      expect(warnings.length, 2);
-      expect(warnings.first.categoryId, transportId);
-      expect(warnings.last.categoryId, foodId);
-    });
-
-    test('a category with no limit never warns, however much is spent',
-        () async {
-      await expenses.insert(Expense.create(
-        amountCents: 500000,
-        categoryId: transportId,
-        spentAt: DateTime(2026, 8, 5),
-      ));
-
-      expect(await repo.warningsForMonth(august), isEmpty);
-    });
-  });
-
-  group('clearing a limit', () {
-    test('removes it and reports one row deleted', () async {
-      await repo.setLimit(
-        categoryId: foodId,
-        month: august,
-        limitCents: 45000,
-      );
-
+      final august = await repo.listByMonth(DateTime(2026, 8, 15));
+      expect(august.length, 2);
       expect(
-        await repo.clearLimit(categoryId: foodId, month: august),
-        1,
-      );
-      expect(await repo.findFor(categoryId: foodId, month: august), isNull);
-    });
-
-    test('clearing a limit that was never set reports zero', () async {
-      expect(
-        await repo.clearLimit(categoryId: foodId, month: august),
-        0,
+        august.map((e) => e.amountCents).toList(),
+        [3000, 2000], // newest first
       );
     });
 
-    test('leaves spending untouched', () async {
-      await repo.setLimit(
-        categoryId: foodId,
-        month: august,
-        limitCents: 45000,
-      );
-      await expenses.insert(Expense.create(
-        amountCents: 20000,
+    test('month total is zero for a month with no entries', () async {
+      expect(await repo.monthTotalCents(DateTime(2026, 8)), 0);
+    });
+
+    test('month total sums only that month', () async {
+      await repo.insert(Expense.create(
+        amountCents: 41800,
         categoryId: foodId,
         spentAt: DateTime(2026, 8, 10),
       ));
+      await repo.insert(Expense.create(
+        amountCents: 17500,
+        categoryId: transportId,
+        spentAt: DateTime(2026, 8, 20),
+      ));
+      await repo.insert(Expense.create(
+        amountCents: 99900,
+        categoryId: foodId,
+        spentAt: DateTime(2026, 9, 2),
+      ));
 
-      await repo.clearLimit(categoryId: foodId, month: august);
+      expect(await repo.monthTotalCents(DateTime(2026, 8)), 59300);
+    });
 
-      final food = (await repo.statusesForMonth(august))
-          .firstWhere((s) => s.categoryId == foodId);
-      expect(food.hasLimit, isFalse);
-      expect(food.spentCents, 20000);
+    test('category totals are grouped and ordered largest first', () async {
+      await repo.insert(Expense.create(
+        amountCents: 1000,
+        categoryId: transportId,
+        spentAt: DateTime(2026, 8, 5),
+      ));
+      await repo.insert(Expense.create(
+        amountCents: 2500,
+        categoryId: foodId,
+        spentAt: DateTime(2026, 8, 6),
+      ));
+      await repo.insert(Expense.create(
+        amountCents: 1500,
+        categoryId: foodId,
+        spentAt: DateTime(2026, 8, 7),
+      ));
+
+      final totals = await repo.totalsByCategory(DateTime(2026, 8));
+
+      expect(totals.length, 2);
+      expect(totals.first.slug, 'food');
+      expect(totals.first.totalCents, 4000);
+      expect(totals.first.entryCount, 2);
+      expect(totals.last.slug, 'transport');
+      expect(totals.last.totalCents, 1000);
+    });
+
+    test('sorting by oldest reverses the list', () async {
+      await repo.insert(Expense.create(
+        amountCents: 100,
+        categoryId: foodId,
+        spentAt: DateTime(2026, 8, 1),
+      ));
+      await repo.insert(Expense.create(
+        amountCents: 200,
+        categoryId: foodId,
+        spentAt: DateTime(2026, 8, 9),
+      ));
+
+      final oldest = await repo.listAll(sort: ExpenseSort.oldestFirst);
+      expect(oldest.map((e) => e.amountCents).toList(), [100, 200]);
+    });
+  });
+
+  group('update', () {
+    test('changes the amount and category of an existing row', () async {
+      final id = await repo.insert(
+        Expense.create(amountCents: 1200, categoryId: foodId),
+      );
+      final original = await repo.findById(id);
+
+      final changed = await repo.update(
+        original!.copyWith(amountCents: 1500, categoryId: transportId),
+      );
+
+      expect(changed, 1);
+      final saved = await repo.findById(id);
+      expect(saved!.amountCents, 1500);
+      expect(saved.categoryId, transportId);
+    });
+
+    test('preserves created_at and moves updated_at forward', () async {
+      final createdAt = DateTime(2026, 8, 1, 9);
+      final id = await repo.insert(Expense.create(
+        amountCents: 1000,
+        categoryId: foodId,
+        now: createdAt,
+      ));
+
+      final original = await repo.findById(id);
+      await repo.update(original!.copyWith(amountCents: 1100));
+      final saved = await repo.findById(id);
+
+      expect(saved!.createdAt, createdAt);
+      expect(saved.updatedAt.isAfter(createdAt), isTrue);
+    });
+
+    test('returns zero rows when the id no longer exists', () async {
+      final id = await repo.insert(
+        Expense.create(amountCents: 1000, categoryId: foodId),
+      );
+      final expense = await repo.findById(id);
+      await repo.delete(id);
+
+      expect(await repo.update(expense!.copyWith(amountCents: 2000)), 0);
+    });
+
+    test('refuses an expense with no id', () async {
+      expect(
+        () => repo.update(Expense.create(amountCents: 100, categoryId: foodId)),
+        throwsArgumentError,
+      );
+    });
+
+    test('clearNote removes an existing note', () async {
+      final id = await repo.insert(Expense.create(
+        amountCents: 1000,
+        categoryId: foodId,
+        note: 'Nasi ayam',
+      ));
+      final expense = await repo.findById(id);
+
+      await repo.update(expense!.copyWith(clearNote: true));
+
+      expect((await repo.findById(id))!.note, isNull);
+    });
+  });
+
+  group('delete', () {
+    test('removes the row and reports one change', () async {
+      final id = await repo.insert(
+        Expense.create(amountCents: 1000, categoryId: foodId),
+      );
+
+      expect(await repo.delete(id), 1);
+      expect(await repo.findById(id), isNull);
+      expect(await repo.count(), 0);
+    });
+
+    test('deleting a missing id reports zero changes', () async {
+      expect(await repo.delete(404), 0);
+    });
+  });
+
+  group('Money', () {
+    test('formats cents as ringgit', () {
+      expect(Money.format(121200), 'RM 1,212.00');
+      expect(Money.format(0), 'RM 0.00');
+      expect(Money.format(5), 'RM 0.05');
+    });
+
+    test('parses the formats a student will actually type', () {
+      expect(Money.parse('12'), 1200);
+      expect(Money.parse('12.5'), 1250);
+      expect(Money.parse('12.50'), 1250);
+      expect(Money.parse('RM 12.50'), 1250);
+      expect(Money.parse('1,212.00'), 121200);
+    });
+
+    test('rejects input that is not a usable amount', () {
+      expect(Money.parse(''), isNull);
+      expect(Money.parse('abc'), isNull);
+      expect(Money.parse('0'), isNull);
+      expect(Money.parse('1.2.3'), isNull);
+    });
+
+    test('rounds rather than truncating the third decimal', () {
+      expect(Money.parse('12.999'), 1300);
+    });
+
+    test('percentUsed crosses the 90% warning threshold correctly', () {
+      // The exact boundary from Objective 2.
+      expect(Money.percentUsed(spentCents: 40500, limitCents: 45000), 90);
+      expect(Money.percentUsed(spentCents: 40499, limitCents: 45000), 90);
+      expect(Money.percentUsed(spentCents: 41800, limitCents: 45000), 93);
+      expect(Money.percentUsed(spentCents: 12500, limitCents: 12000), 104);
+      expect(Money.percentUsed(spentCents: 1000, limitCents: 0), 0);
     });
   });
 }
