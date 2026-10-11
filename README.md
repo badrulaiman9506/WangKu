@@ -1,58 +1,80 @@
-# Wang Ku — Increment 1 foundation
+# WangKu: Student Expense Tracker
 
-Data layer, theme, and CRUD unit tests for the Student Expense Tracker.
-No feature screens yet; those come next.
+WangKu is an Android mobile application that helps university students keep track of their daily spending. It was developed as a Final Year Project (CC101) for the Diploma in Computer Science at Universiti Poly-Tech Malaysia (UPTM), under the supervision of Ts. Muhd Faizal bin Ahmad.
 
-## Getting these files into a project
+The name comes from the Malay words "wang" (money) and "ku" (my), so WangKu simply means "my money". The app runs fully offline. All data is stored on the phone itself, so no account, login or internet connection is needed.
 
-```bash
-flutter create --org my.wangku --platforms android wangku
-cd wangku
+## Features
+
+WangKu covers four main areas, matching the objectives of the project.
+
+1. **Expense tracking.** Students record each expense with an amount, a category, a date and an optional note. Nine categories are provided: Rent, Wifi, Phone, Subscriptions, Transport, Food, Books, Fines and Other. Expenses can be edited or deleted at any time.
+2. **Monthly budgets.** A spending limit can be set for each category. The app shows how much of each limit has been used and gives a warning once spending reaches 90% of the limit, before the student overspends.
+3. **Savings goals.** Students create a goal with a target amount and a target date. The app shows the days remaining and how much needs to be set aside each week to reach the goal on time.
+4. **Debt tracking.** Informal debts between friends are recorded in both directions (money the student owes and money owed to the student). Each debt can have a due date with a local reminder notification, and is marked as settled once it is paid.
+
+The Home screen gives a summary of the month, including a donut chart that breaks spending down by category.
+
+## Tech stack
+
+| Part | Technology |
+| --- | --- |
+| Framework | Flutter (Dart), Android target |
+| Local database | SQLite through `sqflite` |
+| State management | Riverpod (`flutter_riverpod`) |
+| Charts | `fl_chart` |
+| Reminders | `flutter_local_notifications` with `timezone` |
+| Formatting | `intl` for RM amounts and dates |
+| Fonts | Fraunces and Inter through `google_fonts` |
+| Testing | `flutter_test` with `sqflite_common_ffi` |
+
+The project followed the Incremental Model. Increment 1 delivered the database, theme and expense features. Increment 2 added budgets, savings goals, debts, reminders and the category chart.
+
+## Project structure
+
+```
+lib/
+  core/            Theme (colours, typography), money helpers, notification service
+  data/            SQLite database, data models and repositories
+  state/           Riverpod providers that connect the data layer to the screens
+  features/        Screens: home, expenses, budgets, goals, debts and the bottom navigation shell
+  main.dart        App entry point
+test/              Unit tests for the expense, budget, savings goal and debt repositories
+docs/schema.sql    Full database schema with comments
+assets/icon/       App launcher icon
 ```
 
-Then copy `lib/`, `test/`, `docs/`, and `pubspec.yaml` from this folder
-over the generated ones, and run:
+## Design decisions
+
+Money is stored as whole cents in INTEGER columns rather than as REAL values. SQLite REAL is a floating point type, so small rounding errors would build up over a month of entries and could make the 90% budget warning appear at the wrong point. Using cents keeps every total exact.
+
+All five tables (categories, expenses, budgets, debts and savings_goals) are created in the first database version, including the tables used in Increment 2. This meant the second increment did not need a database upgrade step.
+
+## How to run
+
+You will need the Flutter SDK (Dart 3.5 or later), Android Studio or the Android SDK, and an Android phone or emulator.
 
 ```bash
+git clone https://github.com/badrulaiman9506/WangKu.git
+cd WangKu
 flutter pub get
-flutter test          # 22 tests, all should pass
-flutter run           # opens the smoke screen on your device
+flutter run
 ```
 
-The smoke screen in `main.dart` is temporary. It confirms three things on
-a real device before any UI exists: the database file is created, the nine
-categories are seeded, and an insert followed by a read comes back intact.
-It gets replaced by the Home screen in the next step.
+To run the unit tests:
 
-## What is here
-
-```
-docs/schema.sql                     Full DDL, commented, for the report's ERD section
-lib/core/theme/app_colors.dart      Every hex value in the app
-lib/core/theme/app_typography.dart  Fraunces + Inter, four sizes
-lib/core/theme/app_theme.dart       Material 3 ThemeData and the spacing scale
-lib/core/utils/money.dart           Cents handling, RM formatting, the 90% calculation
-lib/data/db/app_database.dart       Connection owner and the v1 migration
-lib/data/models/                    Category, Expense, CategoryTotal
-lib/data/repositories/              Expense CRUD, category lookup
-test/expense_repository_test.dart   Increment 1 test deliverable
+```bash
+flutter test
 ```
 
-## Two decisions worth defending in the report
+To build an installable APK:
 
-**Money is stored as integer cents, never as REAL.** SQLite REAL is a
-64-bit float, so 0.1 + 0.2 is not 0.3. Over a month of small food entries
-the budget total would drift by a few sen and the 90% warning would fire
-at the wrong point. Cents are exact. `Money.parse` and `Money.format` are
-the only two places a decimal exists.
+```bash
+flutter build apk --release
+```
 
-**All five tables are created in migration version 1**, including the
-Increment 2 tables. Adding tables later would mean writing and testing an
-`onUpgrade` path during the busiest week of the project. Creating them
-upfront costs nothing, since an unused table holds no rows.
+The APK is created at `build/app/outputs/flutter-apk/app-release.apk`.
 
-## Next
+## Author
 
-Increment 1 screens, in this order: Home, add-expense sheet, expense list,
-edit and delete. The repository already exposes every query those screens
-need.
+Badrul, Diploma in Computer Science, Universiti Poly-Tech Malaysia (UPTM), 2026.
